@@ -19,9 +19,11 @@ jobs:
          os: [windows-latest]
        fail-fast: false    
     steps:
-      - name: (Windows) Install Ninja
+      - name: (Windows) Install Dependencies
         if: matrix.os == 'windows-latest'
-        run: choco install ninja
+        run: |
+          choco install ninja
+          choco install openssl
 
       - name: Get Skia from cache
         id: skia-cache
@@ -82,9 +84,35 @@ jobs:
         shell: bash
         run: rm -f gen modp_b64_gen gen.exe gen.exe.manifest modp_b64_gen.exe modp_b64_gen.exe.manifest
 
+      - name: Copy OpenSSL DLLs
+        working-directory: aseprite/build/bin
+        run: |
+          Copy-Item "C:\Program Files\OpenSSL\bin\libcrypto-1_1-x64.dll" ./
+          Copy-Item "C:\Program Files\OpenSSL\bin\libssl-1_1-x64.dll" ./
+        shell: pwsh
+
+      - name: Download Visual C++ Redistributable
+        run: |
+          Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile vc_redist.x64.exe
+          Start-Process -FilePath .\vc_redist.x64.exe -ArgumentList '/install', '/quiet', '/norestart' -Wait
+        shell: pwsh
+
+      - name: Copy Runtime DLLs
+        working-directory: aseprite/build/bin
+        shell: pwsh
+        run: |
+          # Copy required Visual C++ Runtime DLLs from System32
+          Copy-Item "C:\Windows\System32\msvcp140.dll" ./
+          Copy-Item "C:\Windows\System32\vcruntime140.dll" ./
+          Copy-Item "C:\Windows\System32\vcruntime140_1.dll" ./
+
       - name: (Windows) Make portable zip
         working-directory: aseprite/build/bin
-        run: echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
+        shell: pwsh
+        run: |
+          echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
+          # Copy Skia DLLs
+          Copy-Item "../../skia/out/Release-x64/*.dll" ./ -ErrorAction SilentlyContinue
 
       - name: Create release zip
         working-directory: aseprite/build/bin
