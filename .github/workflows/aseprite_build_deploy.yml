@@ -17,7 +17,7 @@ jobs:
     outputs:
       download_url: ${{ steps.version_info.outputs.download_url }}
       latest_tag: ${{ steps.version_info.outputs.latest_tag }}
-      should_build: true  # Always set to true
+      should_build: true
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
     - name: Get latest version info
@@ -68,12 +68,12 @@ jobs:
         uses: actions/cache@v3
         with:
           path: skia
-          key: skia-${{ matrix.os }}-cache
+          key: skia-${{ matrix.os }}-cache-m102
       - name: Download Skia if not in cache
         if: steps.skia-cache.outputs.cache-hit != 'true'
         run: |
-          curl -o Skia-${{ runner.os }}-Release-X64.zip -L https://github.com/aseprite/skia/releases/download/m81-b607b32047/Skia-${{ runner.os }}-Release-X64.zip
-          unzip Skia-${{ runner.os }}-Release-X64.zip -d skia
+          curl -o Skia-Windows-Release-x64.zip -L https://github.com/aseprite/skia/releases/download/m102-861e4743af/Skia-Windows-Release-x64.zip
+          unzip Skia-Windows-Release-x64.zip -d skia
       - name: List Skia directory
         run: |
           dir skia
