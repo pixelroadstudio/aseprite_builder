@@ -19,11 +19,8 @@ jobs:
          os: [windows-latest]
        fail-fast: false    
     steps:
-      - name: (Windows) Install Dependencies
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install ninja
-          choco install openssl
+      - name: (Windows) Install Ninja
+        run: choco install ninja
 
       - name: Get Skia from cache
         id: skia-cache
@@ -84,12 +81,25 @@ jobs:
         shell: bash
         run: rm -f gen modp_b64_gen gen.exe gen.exe.manifest modp_b64_gen.exe modp_b64_gen.exe.manifest
 
+      - name: Download OpenSSL
+        run: |
+          curl -L -o openssl.exe https://slproweb.com/download/Win64OpenSSL_Light-1_1_1w.exe
+          Start-Process -FilePath .\openssl.exe -ArgumentList '/VERYSILENT /SP- /SUPPRESSMSGBOXES' -Wait
+        shell: pwsh
+
       - name: Copy OpenSSL DLLs
         working-directory: aseprite/build/bin
-        run: |
-          Copy-Item "C:\Program Files\OpenSSL\bin\libcrypto-1_1-x64.dll" ./
-          Copy-Item "C:\Program Files\OpenSSL\bin\libssl-1_1-x64.dll" ./
         shell: pwsh
+        run: |
+          Copy-Item "C:\Program Files\OpenSSL-Win64\libcrypto-1_1-x64.dll" ./
+          Copy-Item "C:\Program Files\OpenSSL-Win64\libssl-1_1-x64.dll" ./
+          # Additional potentially needed DLLs
+          Copy-Item "../../skia/out/Release-x64/*.dll" ./ -ErrorAction SilentlyContinue
+          Copy-Item "C:\Windows\System32\msvcp140.dll" ./
+          Copy-Item "C:\Windows\System32\vcruntime140.dll" ./
+          Copy-Item "C:\Windows\System32\vcruntime140_1.dll" ./
+          # List all DLLs to verify
+          Get-ChildItem *.dll
 
       - name: Download Visual C++ Redistributable
         run: |
@@ -97,22 +107,23 @@ jobs:
           Start-Process -FilePath .\vc_redist.x64.exe -ArgumentList '/install', '/quiet', '/norestart' -Wait
         shell: pwsh
 
-      - name: Copy Runtime DLLs
+      - name: Check Dependencies
         working-directory: aseprite/build/bin
         shell: pwsh
         run: |
-          # Copy required Visual C++ Runtime DLLs from System32
-          Copy-Item "C:\Windows\System32\msvcp140.dll" ./
-          Copy-Item "C:\Windows\System32\vcruntime140.dll" ./
-          Copy-Item "C:\Windows\System32\vcruntime140_1.dll" ./
+          # Download Dependencies tool
+          Invoke-WebRequest -Uri https://github.com/lucasg/Dependencies/releases/download/v1.11.1/Dependencies_x64_Release.zip -OutFile Dependencies.zip
+          Expand-Archive Dependencies.zip -DestinationPath Dependencies
+          # Check aseprite.exe dependencies
+          ./Dependencies/Dependencies.exe -modules aseprite.exe
 
       - name: (Windows) Make portable zip
         working-directory: aseprite/build/bin
         shell: pwsh
         run: |
           echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
-          # Copy Skia DLLs
-          Copy-Item "../../skia/out/Release-x64/*.dll" ./ -ErrorAction SilentlyContinue
+          # Double-check DLL presence
+          Get-ChildItem *.dll | Select-Object Name
 
       - name: Create release zip
         working-directory: aseprite/build/bin
